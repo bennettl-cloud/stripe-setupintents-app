@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Save Card for Future Billing</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 640px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      form {
+        display: grid;
+        gap: 12px;
+      }
+      #card-element {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 10px;
+      }
+      button {
+        padding: 10px 14px;
+        border: 0;
+        border-radius: 6px;
+        background: #111;
+        color: #fff;
+        cursor: pointer;
+      }
+      #message {
+        min-height: 1.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Save Card for Future Off-Session Charges</h1>
+    <form id="setup-form">
+      <label>
+        Name
+        <input id="name" required />
+      </label>
+      <label>
+        Email
+        <input id="email" type="email" required />
+      </label>
+      <label>Card Details</label>
+      <div id="card-element"></div>
+      <button type="submit">Save Card</button>
+    </form>
+    <p id="message"></p>
+
+    <script>
+      const form = document.getElementById("setup-form");
+      const messageEl = document.getElementById("message");
+      let stripe;
+      let card;
+
+      async function setupStripe() {
+        const configRes = await fetch("/config");
+        const config = await configRes.json();
+        stripe = Stripe(config.publishableKey);
+        const elements = stripe.elements();
+        card = elements.create("card");
+        card.mount("#card-element");
+      }
+
+      function setMessage(msg, isError = false) {
+        messageEl.textContent = msg;
+        messageEl.style.color = isError ? "crimson" : "green";
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setMessage("Saving card...");
+
+        const name = document.getElementById("name").value;
+        const email = document.getElementById("email").value;
+
+        try {
+          const customerRes = await fetch("/create-customer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email })
+          });
+          const customerData = await customerRes.json();
+          if (!customerRes.ok) {
+            throw new Error(customerData.error || "Could not create customer");
+          }
+
+          const setupIntentRes = await fetch("/create-setup-intent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ customerId: customerData.customerId })
+          });
+          const setupIntentData = await setupIntentRes.json();
+          if (!setupIntentRes.ok) {
+            throw new Error(setupIntentData.error || "Could not create SetupIntent");
+          }
+
+          const result = await stripe.confirmCardSetup(setupIntentData.clientSecret, {
+            payment_method: {
+              card,
+              billing_details: { name, email }
+            }
+          });
+
+          if (result.error) {
+            throw new Error(result.error.message);
+          }
+
+          setMessage(
+            `Card saved. SetupIntent ${result.setupIntent.id} is ${result.setupIntent.status}.`
+          );
+        } catch (err) {
+          setMessage(err.message, true);
+        }
+      });
+
+      setupStripe().catch((err) => setMessage(err.message, true));
+    </script>
+  </body>
+</html>

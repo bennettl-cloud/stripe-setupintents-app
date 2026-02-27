@@ -13,19 +13,20 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
 app.post("/create-customer", async (req, res) => {
   try {
-    const { email, name } = req.body || {};
-    const customer = await stripe.customers.create({
-      email,
-      name
-    });
+    const customer = await stripe.customers.create();
     res.json({ customerId: customer.id });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: "Could not create customer." });
   }
 });
 
@@ -47,7 +48,7 @@ app.post("/create-setup-intent", async (req, res) => {
       setupIntentId: setupIntent.id
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: "Could not create SetupIntent." });
   }
 });
 
@@ -73,28 +74,21 @@ app.post(
         event = JSON.parse(req.body.toString("utf8"));
       }
     } catch (err) {
-      console.error("Webhook signature verification failed:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      return res.status(400).send("Webhook signature verification failed.");
     }
 
     switch (event.type) {
       case "setup_intent.succeeded": {
-        const setupIntent = event.data.object;
-        console.log("SetupIntent succeeded:", setupIntent.id);
         break;
       }
       case "setup_intent.setup_failed": {
-        const setupIntent = event.data.object;
-        console.log("SetupIntent failed:", setupIntent.id);
         break;
       }
       case "payment_method.attached": {
-        const paymentMethod = event.data.object;
-        console.log("PaymentMethod attached:", paymentMethod.id);
         break;
       }
       default:
-        console.log("Unhandled event type:", event.type);
+        break;
     }
 
     return res.json({ received: true });

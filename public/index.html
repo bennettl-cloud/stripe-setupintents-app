@@ -37,14 +37,6 @@
   <body>
     <h1>Save Card for Future Off-Session Charges</h1>
     <form id="setup-form">
-      <label>
-        Name
-        <input id="name" required />
-      </label>
-      <label>
-        Email
-        <input id="email" type="email" required />
-      </label>
       <label>Card Details</label>
       <div id="card-element"></div>
       <button type="submit">Save Card</button>
@@ -75,14 +67,11 @@
         e.preventDefault();
         setMessage("Saving card...");
 
-        const name = document.getElementById("name").value;
-        const email = document.getElementById("email").value;
-
         try {
           const customerRes = await fetch("/create-customer", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, email })
+            body: JSON.stringify({})
           });
           const customerData = await customerRes.json();
           if (!customerRes.ok) {
@@ -101,8 +90,7 @@
 
           const result = await stripe.confirmCardSetup(setupIntentData.clientSecret, {
             payment_method: {
-              card,
-              billing_details: { name, email }
+              card
             }
           });
 

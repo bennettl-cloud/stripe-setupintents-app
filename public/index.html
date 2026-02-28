@@ -93,6 +93,24 @@
       #payment-element {
         padding: 12px 10px;
       }
+      .payment-stack {
+        display: grid;
+        gap: 10px;
+      }
+      .line-field {
+        background: var(--card);
+        border: 1px solid #cfcfcf;
+        border-radius: 8px;
+        padding: 12px 10px;
+      }
+      .line-input {
+        width: 100%;
+        background: var(--card);
+        border: 1px solid #cfcfcf;
+        border-radius: 8px;
+        padding: 12px 10px;
+        font-size: 16px;
+      }
       button {
         margin-top: 4px;
         width: 100%;
@@ -143,7 +161,12 @@
             <div id="shipping-address-element" class="stripe-field"></div>
 
             <h3>Payment method</h3>
-            <div id="payment-element" class="stripe-field"></div>
+            <div id="payment-element" class="payment-stack">
+              <div id="card-number-element" class="line-field"></div>
+              <div id="card-expiry-element" class="line-field"></div>
+              <div id="card-cvc-element" class="line-field"></div>
+              <input id="postal-code" class="line-input" placeholder="ZIP code" autocomplete="postal-code" />
+            </div>
             <button type="submit">Pay</button>
             <p id="message"></p>
           </form>
@@ -158,7 +181,9 @@
       let elements;
       let linkElement;
       let addressElement;
-      let cardElement;
+      let cardNumberElement;
+      let cardExpiryElement;
+      let cardCvcElement;
       let userEmail = "";
       let setupIntentClientSecret = "";
 
@@ -205,8 +230,12 @@
         });
         addressElement.mount("#shipping-address-element");
 
-        cardElement = elements.create("card");
-        cardElement.mount("#payment-element");
+        cardNumberElement = elements.create("cardNumber");
+        cardNumberElement.mount("#card-number-element");
+        cardExpiryElement = elements.create("cardExpiry");
+        cardExpiryElement.mount("#card-expiry-element");
+        cardCvcElement = elements.create("cardCvc");
+        cardCvcElement.mount("#card-cvc-element");
       }
 
       function setMessage(msg, isError = false) {
@@ -221,14 +250,19 @@
         try {
           const addressResult = await addressElement.getValue();
           const address = addressResult && addressResult.value ? addressResult.value : {};
+          const postalCode = document.getElementById("postal-code").value.trim();
+          const billingAddress = {
+            ...(address.address || {}),
+            postal_code: postalCode || (address.address && address.address.postal_code) || undefined
+          };
 
           const result = await stripe.confirmCardSetup(setupIntentClientSecret, {
             payment_method: {
-              card: cardElement,
+              card: cardNumberElement,
               billing_details: {
                 email: userEmail || undefined,
                 name: address.name || undefined,
-                address: address.address || undefined
+                address: billingAddress
               }
             }
           });

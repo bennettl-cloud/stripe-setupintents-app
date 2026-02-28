@@ -162,7 +162,7 @@
       let elements;
       let linkElement;
       let addressElement;
-      let cardElement;
+      let paymentElement;
       let userEmail = "";
       let setupIntentClientSecret = "";
 
@@ -209,8 +209,18 @@
         });
         addressElement.mount("#shipping-address-element");
 
-        cardElement = elements.create("card");
-        cardElement.mount("#payment-element");
+        paymentElement = elements.create("payment", {
+          layout: "tabs",
+          paymentMethodOrder: ["card"],
+          fields: {
+            billingDetails: {
+              email: "never",
+              name: "auto",
+              address: "auto"
+            }
+          }
+        });
+        paymentElement.mount("#payment-element");
       }
 
       function setMessage(msg, isError = false) {
@@ -228,16 +238,14 @@
             throw new Error(submitResult.error.message);
           }
 
-          const addressResult = await addressElement.getValue();
-          const address = addressResult && addressResult.value ? addressResult.value : {};
-
-          const result = await stripe.confirmCardSetup(setupIntentClientSecret, {
-            payment_method: {
-              card: cardElement,
-              billing_details: {
-                email: userEmail || undefined,
-                name: address.name || undefined,
-                address: address.address || undefined
+          const result = await stripe.confirmSetup({
+            elements,
+            redirect: "if_required",
+            confirmParams: {
+              payment_method_data: {
+                billing_details: {
+                  email: userEmail || undefined
+                }
               }
             }
           });

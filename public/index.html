@@ -63,41 +63,6 @@
         max-width: 540px;
         margin: 0 auto;
       }
-      .wallet-row {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-        margin-bottom: 14px;
-      }
-      .wallet {
-        border: 0;
-        border-radius: 8px;
-        font-weight: 700;
-        padding: 12px 6px;
-      }
-      .wallet.link {
-        background: #03cc67;
-      }
-      .wallet.amazon {
-        background: #f6d300;
-      }
-      .wallet.klarna {
-        background: #eca0c8;
-      }
-      .separator {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: center;
-        gap: 10px;
-        color: var(--muted);
-        font-size: 12px;
-        margin-bottom: 16px;
-      }
-      .separator::before,
-      .separator::after {
-        content: "";
-        border-top: 1px solid var(--line);
-      }
       h2 {
         margin: 0 0 12px;
         font-size: 32px;
@@ -185,12 +150,6 @@
       </section>
       <section class="right">
         <div class="checkout">
-          <div class="wallet-row">
-            <button type="button" class="wallet link">link</button>
-            <button type="button" class="wallet amazon">amazon pay</button>
-            <button type="button" class="wallet klarna">Klarna</button>
-          </div>
-          <div class="separator">OR</div>
           <h2>Shipping information</h2>
           <form id="setup-form">
             <div class="field-label">Email</div>

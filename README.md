@@ -29,6 +29,16 @@ This project saves a customer's card for future off-session billing using Stripe
 
 This folder includes `render.yaml` so Render can deploy automatically from a Git repo.
 
+## Production safeguards
+
+The backend includes:
+
+- Origin allowlist checks (`ALLOWED_ORIGINS`)
+- Request rate limiting on read and write endpoints
+- Stripe idempotency key handling for customer/setup-intent creation
+
+Set `ALLOWED_ORIGINS` to your deployed frontend origin(s), comma-separated.
+
 ## Webhooks (local)
 
 Use Stripe CLI to forward events:

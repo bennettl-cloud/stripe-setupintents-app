@@ -105,7 +105,6 @@
         border-radius: 14px;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       }
-      #link-authentication-element,
       #shipping-address-element {
         padding: 12px;
       }
@@ -194,9 +193,6 @@
       <section class="right">
         <div class="checkout">
           <form id="setup-form">
-            <div class="field-label">Email</div>
-            <div id="link-authentication-element" class="stripe-field"></div>
-
             <div class="field-label">Shipping address</div>
             <div id="shipping-address-element" class="stripe-field"></div>
 
@@ -214,10 +210,8 @@
       const messageEl = document.getElementById("message");
       let stripe;
       let elements;
-      let linkElement;
       let addressElement;
       let paymentElement;
-      let userEmail = "";
       let setupIntentClientSecret = "";
 
       function newIdempotencyKey(prefix) {
@@ -264,12 +258,6 @@
           appearance: { theme: "stripe" }
         });
 
-        linkElement = elements.create("linkAuthentication");
-        linkElement.mount("#link-authentication-element");
-        linkElement.on("change", (event) => {
-          userEmail = event.value && event.value.email ? event.value.email : "";
-        });
-
         addressElement = elements.create("address", {
           mode: "shipping",
           autocomplete: { mode: "automatic" }
@@ -310,9 +298,7 @@
             redirect: "if_required",
             confirmParams: {
               payment_method_data: {
-                billing_details: {
-                  email: userEmail || undefined
-                }
+                billing_details: {}
               }
             }
           });

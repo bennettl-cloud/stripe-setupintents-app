@@ -115,7 +115,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(readLimiter);
 app.use(express.json({ limit: "50kb" }));
 app.use(requireAllowedOrigin);
-app.use(["/create-customer", "/create-setup-intent"], writeLimiter);
+app.use(["/create-customer", "/create-setup-intent", "/charge-off-session"], writeLimiter);
 
 app.post("/create-customer", async (req, res) => {
   try {
@@ -154,6 +154,48 @@ app.post("/create-setup-intent", async (req, res) => {
     });
   } catch (err) {
     res.status(400).json({ error: "Could not create SetupIntent." });
+  }
+});
+
+app.post("/charge-off-session", async (req, res) => {
+  try {
+    const { customerId, paymentMethodId, amount, currency = "usd", description } = req.body || {};
+    if (!customerId || !paymentMethodId || !amount) {
+      return res
+        .status(400)
+        .json({ error: "Missing required fields: customerId, paymentMethodId, amount." });
+    }
+
+    const parsedAmount = Number(amount);
+    if (!Number.isInteger(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: "amount must be a positive integer in cents." });
+    }
+
+    const idempotencyKey = getIdempotencyKey(req, "off_session_charge");
+    if (!idempotencyKey) {
+      return res.status(400).json({ error: "Missing Idempotency-Key header." });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: parsedAmount,
+        currency: String(currency).toLowerCase(),
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        description: description || undefined
+      },
+      { idempotencyKey }
+    );
+
+    return res.json({
+      paymentIntentId: paymentIntent.id,
+      status: paymentIntent.status
+    });
+  } catch (err) {
+    const code = err && err.code ? err.code : "payment_failed";
+    return res.status(400).json({ error: "Could not create off-session charge.", code });
   }
 });
 

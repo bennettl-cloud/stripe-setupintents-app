@@ -265,14 +265,7 @@
         addressElement.mount("#shipping-address-element");
 
         paymentElement = elements.create("payment", {
-          layout: "tabs",
-          fields: {
-            billingDetails: {
-              email: "never",
-              name: "auto",
-              address: "auto"
-            }
-          }
+          layout: "tabs"
         });
         paymentElement.mount("#payment-element");
       }

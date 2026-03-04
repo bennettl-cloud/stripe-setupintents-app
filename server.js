@@ -13,6 +13,10 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const chargeApiKeys = (process.env.CHARGE_API_KEYS || "")
+  .split(",")
+  .map((key) => key.trim())
+  .filter(Boolean);
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("Missing STRIPE_SECRET_KEY in environment.");
@@ -22,6 +26,9 @@ if (!process.env.STRIPE_PUBLISHABLE_KEY) {
 }
 if (isProduction && allowedOrigins.length === 0) {
   throw new Error("Missing ALLOWED_ORIGINS in production.");
+}
+if (isProduction && chargeApiKeys.length === 0) {
+  throw new Error("Missing CHARGE_API_KEYS in production.");
 }
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -63,9 +70,26 @@ function requireAllowedOrigin(req, res, next) {
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Idempotency-Key,X-Idempotency-Key");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Idempotency-Key,X-Idempotency-Key,Authorization,X-Charge-Key"
+  );
   if (req.method === "OPTIONS") {
     return res.status(204).end();
+  }
+  return next();
+}
+
+function requireChargeApiKey(req, res, next) {
+  const authHeader = req.get("Authorization") || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const providedKey = (req.get("X-Charge-Key") || bearerToken || "").trim();
+
+  if (!providedKey) {
+    return res.status(401).json({ error: "Missing charge API key." });
+  }
+  if (!chargeApiKeys.includes(providedKey)) {
+    return res.status(403).json({ error: "Invalid charge API key." });
   }
   return next();
 }
@@ -157,7 +181,7 @@ app.post("/create-setup-intent", async (req, res) => {
   }
 });
 
-app.post("/charge-off-session", async (req, res) => {
+app.post("/charge-off-session", requireChargeApiKey, async (req, res) => {
   try {
     const { customerId, paymentMethodId, amount, currency = "usd", description } = req.body || {};
     if (!customerId || !paymentMethodId || !amount) {
@@ -174,6 +198,20 @@ app.post("/charge-off-session", async (req, res) => {
     const idempotencyKey = getIdempotencyKey(req, "off_session_charge");
     if (!idempotencyKey) {
       return res.status(400).json({ error: "Missing Idempotency-Key header." });
+    }
+
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!customer || customer.deleted) {
+      return res.status(400).json({ error: "Invalid customerId." });
+    }
+
+    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+    const paymentMethodCustomerId =
+      typeof paymentMethod.customer === "string"
+        ? paymentMethod.customer
+        : paymentMethod.customer && paymentMethod.customer.id;
+    if (paymentMethod.type !== "card" || paymentMethodCustomerId !== customerId) {
+      return res.status(400).json({ error: "Payment method does not belong to customer." });
     }
 
     const paymentIntent = await stripe.paymentIntents.create(
@@ -194,8 +232,7 @@ app.post("/charge-off-session", async (req, res) => {
       status: paymentIntent.status
     });
   } catch (err) {
-    const code = err && err.code ? err.code : "payment_failed";
-    return res.status(400).json({ error: "Could not create off-session charge.", code });
+    return res.status(400).json({ error: "Could not create off-session charge." });
   }
 });
 

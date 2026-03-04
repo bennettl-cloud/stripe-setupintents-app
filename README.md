@@ -37,8 +37,10 @@ The backend includes:
 - Origin allowlist checks (`ALLOWED_ORIGINS`)
 - Request rate limiting on read and write endpoints
 - Stripe idempotency key handling for customer/setup-intent creation
+- API-key auth + ownership validation on `/charge-off-session`
 
 Set `ALLOWED_ORIGINS` to your deployed frontend origin(s), comma-separated.
+Set `CHARGE_API_KEYS` to one or more comma-separated secret keys for authorizing charge requests.
 
 ## Webhooks (local)
 

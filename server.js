@@ -9,6 +9,8 @@ const Stripe = require("stripe");
 const app = express();
 const port = process.env.PORT || 4242;
 const isProduction = process.env.NODE_ENV === "production";
+const defaultCurrency = (process.env.CURRENCY || "usd").toLowerCase();
+const defaultSubtotalCents = Number(process.env.PRODUCT_SUBTOTAL_CENTS || 2967);
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -139,7 +141,10 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(readLimiter);
 app.use(express.json({ limit: "50kb" }));
 app.use(requireAllowedOrigin);
-app.use(["/create-customer", "/create-setup-intent", "/charge-off-session"], writeLimiter);
+app.use(
+  ["/create-customer", "/create-setup-intent", "/charge-off-session", "/calculate-tax"],
+  writeLimiter
+);
 
 app.post("/create-customer", async (req, res) => {
   try {
@@ -178,6 +183,43 @@ app.post("/create-setup-intent", async (req, res) => {
     });
   } catch (err) {
     res.status(400).json({ error: "Could not create SetupIntent." });
+  }
+});
+
+app.post("/calculate-tax", async (req, res) => {
+  try {
+    const { shippingAddress, amount } = req.body || {};
+    const cents = Number.isInteger(Number(amount)) ? Number(amount) : defaultSubtotalCents;
+    if (cents <= 0) {
+      return res.status(400).json({ error: "amount must be a positive integer in cents." });
+    }
+    if (!shippingAddress || !shippingAddress.country || !shippingAddress.postal_code) {
+      return res.status(400).json({ error: "shippingAddress.country and postal_code are required." });
+    }
+
+    const calc = await stripe.tax.calculations.create({
+      currency: defaultCurrency,
+      line_items: [
+        {
+          amount: cents,
+          reference: "sertralucin-monthly"
+        }
+      ],
+      customer_details: {
+        address: shippingAddress,
+        address_source: "shipping"
+      }
+    });
+
+    const taxAmount = calc.tax_amount_exclusive || (calc.total_details && calc.total_details.amount_tax) || 0;
+    return res.json({
+      subtotal: cents,
+      tax: taxAmount,
+      total: cents + taxAmount,
+      currency: defaultCurrency
+    });
+  } catch (err) {
+    return res.status(400).json({ error: "Could not calculate tax." });
   }
 });
 

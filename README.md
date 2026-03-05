@@ -6,6 +6,7 @@ This project saves a customer's card for future off-session billing using Stripe
 
 - `POST /create-customer`: creates a Stripe customer
 - `POST /create-setup-intent`: creates a SetupIntent (`usage: off_session`)
+- `POST /calculate-tax`: calculates tax from shipping address + subtotal
 - `POST /charge-off-session`: charges a saved payment method off-session
 - `POST /webhook`: handles Stripe webhook events
 - Frontend (`public/index.html`) using Stripe Elements + `confirmCardSetup`

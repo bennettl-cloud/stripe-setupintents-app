@@ -111,26 +111,6 @@
       #payment-element {
         padding: 10px;
       }
-      .totals {
-        margin-top: 6px;
-        padding: 12px 14px;
-        background: #ffffff;
-        border: 1px solid #cfcfcf;
-        border-radius: 10px;
-      }
-      .totals-row {
-        display: flex;
-        justify-content: space-between;
-        font-size: 14px;
-        color: #333;
-        margin-bottom: 6px;
-      }
-      .totals-row:last-child {
-        margin-bottom: 0;
-      }
-      .totals-row.total {
-        font-weight: 700;
-      }
       button {
         margin-top: 10px;
         width: 36%;
@@ -218,11 +198,6 @@
 
             <h3>Payment method</h3>
             <div id="payment-element" class="stripe-field"></div>
-            <div class="totals">
-              <div class="totals-row"><span>Subtotal</span><span id="subtotal">$29.67</span></div>
-              <div class="totals-row"><span>Tax</span><span id="tax">$0.00</span></div>
-              <div class="totals-row total"><span>Total</span><span id="total">$29.67</span></div>
-            </div>
             <button type="submit">Pay</button>
             <p id="message"></p>
           </form>
@@ -238,39 +213,6 @@
       let addressElement;
       let paymentElement;
       let setupIntentClientSecret = "";
-      const subtotalCents = 2967;
-      let taxUpdateTimer = null;
-
-      function formatMoney(cents) {
-        return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-          (cents || 0) / 100
-        );
-      }
-
-      function renderTotals(taxCents = 0) {
-        document.getElementById("subtotal").textContent = formatMoney(subtotalCents);
-        document.getElementById("tax").textContent = formatMoney(taxCents);
-        document.getElementById("total").textContent = formatMoney(subtotalCents + taxCents);
-      }
-
-      async function refreshTax(address) {
-        const res = await fetch("/calculate-tax", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": newIdempotencyKey("tax-calc")
-          },
-          body: JSON.stringify({
-            amount: subtotalCents,
-            shippingAddress: address
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "Could not calculate tax");
-        }
-        renderTotals(data.tax || 0);
-      }
 
       function newIdempotencyKey(prefix) {
         if (window.crypto && window.crypto.randomUUID) {
@@ -321,22 +263,6 @@
           autocomplete: { mode: "automatic" }
         });
         addressElement.mount("#shipping-address-element");
-        addressElement.on("change", (event) => {
-          if (taxUpdateTimer) {
-            clearTimeout(taxUpdateTimer);
-          }
-          taxUpdateTimer = setTimeout(async () => {
-            try {
-              if (!event.complete || !event.value || !event.value.address) {
-                renderTotals(0);
-                return;
-              }
-              await refreshTax(event.value.address);
-            } catch (_err) {
-              renderTotals(0);
-            }
-          }, 400);
-        });
 
         paymentElement = elements.create("payment", {
           layout: "tabs"
@@ -381,7 +307,6 @@
         }
       });
 
-      renderTotals(0);
       setupStripe().catch((err) => setMessage(err.message, true));
     </script>
   </body>
